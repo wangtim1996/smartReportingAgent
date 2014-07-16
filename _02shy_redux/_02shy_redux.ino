@@ -10,7 +10,7 @@ const int detectPin = 3;
 
 //stuff to change around
 const int detectNothingThresh = 75;
-const int detectFarThresh = 100;
+const int detectFarThresh = 125;
 const int detectMaxThresh = 500;
 const int detectCloseThresh = 400; //for stacks
 
@@ -117,7 +117,9 @@ void loop() {
     
     turnOffLed(true,true,false);
     currentLed = blueLed;   
-    multi = 1;
+    stackDecay();
+    multi = 0; //1 is added later replaced by a decay
+    
     if(atMaxDelay<=0)//fix overflow
     {
       atMaxDelay = 0;
@@ -139,7 +141,12 @@ void loop() {
     }
     
   }
+  if(detectStacks > 8)//limiter so it doesn't get annoying
+  {
+    //detectStacks = 8;
+  }
   multi += detectStacks + 1;//plus 1 just cuz
+  
   breath(multi);
   
   if(pirDelay<=0) //avoiding overflow
@@ -288,7 +295,7 @@ void checkStacks()
   }
   if(stackLossDelay <= 0)
   {
-    detectStacks = 0;
+    stackDecay();
     stackLossDelay = 0;
     if(stackGainDelay <= 0)
     {
@@ -300,7 +307,7 @@ void checkStacks()
     if(stackGainDelay <= 0)
     {
       detectStacks++;
-      stackGainDelay = 100;
+      stackGainDelay = 50;
     }
   }
   
@@ -312,7 +319,12 @@ void checkStacks()
 
 void stackDecay()
 {
-  //if(stackDecayDelay
+  if(stackDecayDelay <= 0)
+  {
+    detectStacks *= .5;
+    stackDecayDelay = 100;
+  }
+  stackDecayDelay--;
 }
 
 void fadeColor()
