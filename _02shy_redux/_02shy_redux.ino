@@ -9,9 +9,9 @@ const int detectPin = 3;
 
 
 //stuff to change around
-const int detectNothingThresh = 75;
-const int detectFarThresh = 125;
-const int detectMaxThresh = 500;
+const int detectNothingThresh = 60; //for off
+const int detectFarThresh = 100; //for blue/red
+const int detectMaxThresh = 500; //for max blinkage withing falling off the cliff
 const int detectCloseThresh = 400; //for stacks
 
 int motionValue1 = 0;
@@ -32,10 +32,17 @@ bool objectAt2;
 
 float multi = 1;
 
-int brightness = 0;
+float brightness = 0;
 int redBrightness = 255;
 int greenBrightness = 255;
 int blueBrightness = 255;
+
+int redAim;
+int greenAim;
+int blueAim;
+
+float redBlueFadeCurrent; //in percent 0 is red, 100 is blue
+int redBlueFadeAim;
 
 int fadeFrom;
 int fadeTo;
@@ -62,7 +69,8 @@ void setup() {
   pinMode(detectPin, INPUT);
   //pinMode(motionPin, INPUT);
   analogWrite(greenLed, 255);
-  analogWrite(blueLed, 255);
+  analogWrite(blueLed, 0); //we are starting blue
+  redBlueFadeCurrent = 0;
   analogWrite(redLed, 255);
   
   Serial.begin(9600);
@@ -115,8 +123,9 @@ void loop() {
   {
     blueDelay = 0;
     
-    turnOffLed(true,true,false);
+    //turnOffLed(true,true,false);//deprec due to fadecolor
     currentLed = blueLed;   
+    redBlueFadeAim = 0;
     stackDecay();
     multi = 0; //1 is added later replaced by a decay
     
@@ -128,26 +137,29 @@ void loop() {
   }
   else
   {
-    turnOffLed(false,true,true);
+    //turnOffLed(false,true,true); // deprec due to fadecolor
     currentLed = redLed;
+    redBlueFadeAim = 100;
     if(atMaxDelay<=0)
     {
-      multi = mostMotionValue / 100;
+      multi = mostMotionValue / 200;
       atMaxDelay = 0;
     }
     else
     {
-      multi = 5;//hard code max
+      multi = 3;//hard code max
     }
     
   }
-  if(detectStacks > 8)//limiter so it doesn't get annoying
+  if(detectStacks > 20)//limiter so it doesn't get annoying
   {
-    //detectStacks = 8;
+    detectStacks = 20;
   }
-  multi += detectStacks + 1;//plus 1 just cuz
+  multi += (detectStacks) + 1;//plus 1 just cuz
   
   breath(multi);
+  
+  
   
   if(pirDelay<=0) //avoiding overflow
   {
@@ -166,36 +178,26 @@ void loop() {
   }
   else
   {
-    analogWrite(currentLed, brightness);
+    //analogWrite(currentLed, brightness);
+    fadeColor(brightness);
   }
+  //turnOffLed(false,true,false);
   
   //Serial.println(brightness);
-  Serial.print(detectVal);
-  Serial.print(":");
-  Serial.print(motionValue1);
-  Serial.print(":");
-  Serial.print(motionValue2);
+
+  
+  Serial.print(multi);
   Serial.print(":");
   Serial.print(brightness);
   Serial.print(":");
-  Serial.print(multi);
+  Serial.print(redBrightness);
   Serial.print(":");
-  Serial.print(atMaxDelay);//over *fixed
-  Serial.print(":");
-  Serial.print(blueDelay);
-  Serial.print(":");
-  Serial.print(pirDelay);
-  Serial.print(":");
-  Serial.print(stackLossDelay);//over *fixed
-  Serial.print(":");
-  Serial.print(stackGainDelay);
-  Serial.print(":");
-  Serial.print(detectStacks);
+  Serial.print(blueBrightness);
   Serial.print("\n");
   
 
   //Serial.println(detectValue);
-  delay(20);
+  delay(50);
   
 
 }
@@ -214,31 +216,31 @@ void breath(float multiplier)
   
   if(brightness > 150)
   {
-    brightness += (1*multiplier*sign);
+    brightness += (10*multiplier*sign);//1
   }
-  if((brightness >125) && (brightness <151))
+  else if((brightness >125) && (brightness <151))
   {
-    brightness += (2*multiplier*sign); 
+    brightness += (9*multiplier*sign); //2
   }
-  if((brightness >100) && (brightness <126))
+  else if((brightness >100) && (brightness <126))
   {
-    brightness += (4*multiplier*sign); 
+    brightness += (7*multiplier*sign); //4
   }
-  if((brightness >75) && (brightness <101))
+  else if((brightness >75) && (brightness <101))
   {
-    brightness += (5*multiplier*sign); 
+    brightness += (5*multiplier*sign); //5
   }
-  if((brightness >50) && (brightness <76))
+  else if((brightness >50) && (brightness <76))
   {
-    brightness += (7*multiplier*sign); 
+    brightness += (4*multiplier*sign); //7
   }
-  if((brightness >25) && (brightness <51))
+  else if((brightness >25) && (brightness <51))
   {
-    brightness += (9*multiplier*sign); 
+    brightness += (3*multiplier*sign); //9
   }
-  if((brightness >= 0) && (brightness <26))
+  else if((brightness >= 0) && (brightness <26))
   {
-    brightness += (10*multiplier*sign); 
+    brightness += (2*multiplier*sign); //10
   }
   
   
@@ -307,7 +309,7 @@ void checkStacks()
     if(stackGainDelay <= 0)
     {
       detectStacks++;
-      stackGainDelay = 50;
+      stackGainDelay = 75;
     }
   }
   
@@ -321,13 +323,28 @@ void stackDecay()
 {
   if(stackDecayDelay <= 0)
   {
-    detectStacks *= .5;
-    stackDecayDelay = 100;
+    detectStacks *= .75;
+    stackDecayDelay = 50;
   }
   stackDecayDelay--;
 }
 
-void fadeColor()
+void fadeColor(float bright)
 {
+  if(redBlueFadeCurrent != redBlueFadeAim)
+  {
+    if(redBlueFadeCurrent < redBlueFadeAim)
+    {
+      redBlueFadeCurrent += 10;
+    }
+    if(redBlueFadeCurrent > redBlueFadeAim)
+    {
+      redBlueFadeCurrent -= 10;
+    }
+  }
+  redBrightness = bright * (redBlueFadeCurrent / 100);
+  blueBrightness = bright - redBrightness;
+  analogWrite(redLed, 255 - redBrightness);
+  analogWrite(blueLed, 255 - blueBrightness);
   
 }
